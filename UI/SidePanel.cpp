@@ -588,7 +588,7 @@ public:
     //@}
 
     /** emitted when an enabled planet panel is clicked by the user */
-    mutable boost::signals2::signal<void (int)> PlanetSelectedSignal;
+    mutable boost::signals2::signal<void (int)> PlanetClickedSignal;
 
     /** emitted when a planet panel is left-double-clicked*/
     mutable boost::signals2::signal<void (int)> PlanetLeftDoubleClickedSignal;
@@ -601,7 +601,6 @@ public:
 private:
     void            DisableNonSelectionCandidates();    //!< disables planet panels that aren't selection candidates
 
-    void            PlanetLeftClicked(int planet_id);   //!< responds to user clicking a planet panel.  emits PlanetSelectedSignal
     void            DoPanelsLayout();                   //!< repositions PlanetPanels, without moving top panel.  Panels below may shift if ones above them have resized.
     void            DoLayout();
 
@@ -2547,7 +2546,7 @@ void SidePanel::PlanetPanelContainer::SetPlanets(const std::vector<int>& planet_
         PlanetPanel* planet_panel = new PlanetPanel(Width() - m_vscroll->Width(), it->second, star_type);
         AttachChild(planet_panel);
         m_planet_panels.push_back(planet_panel);
-        GG::Connect(m_planet_panels.back()->LeftClickedSignal,          &SidePanel::PlanetPanelContainer::PlanetLeftClicked,   this);
+        GG::Connect(m_planet_panels.back()->LeftClickedSignal,          PlanetClickedSignal);
         GG::Connect(m_planet_panels.back()->LeftDoubleClickedSignal,    PlanetLeftDoubleClickedSignal);
         GG::Connect(m_planet_panels.back()->RightClickedSignal,         PlanetRightClickedSignal);
         GG::Connect(m_planet_panels.back()->BuildingRightClickedSignal, BuildingRightClickedSignal);
@@ -2710,11 +2709,6 @@ void SidePanel::PlanetPanelContainer::DisableNonSelectionCandidates() {
     }
 }
 
-void SidePanel::PlanetPanelContainer::PlanetLeftClicked(int planet_id) {
-    //DebugLogger() << "SidePanel::PlanetPanelContainer::PlanetLeftClicked(" << planet_id << ")";
-    PlanetSelectedSignal(planet_id);
-}
-
 void SidePanel::PlanetPanelContainer::VScroll(int pos_top, int pos_bottom, int range_min, int range_max) {
     if (pos_bottom > range_max) {
         // prevent scrolling beyond allowed max
@@ -2822,7 +2816,7 @@ SidePanel::SidePanel(const std::string& config_name) :
     GG::Connect(m_system_name->SelChangedWhileDroppedSignal,             &SidePanel::SystemSelectionChangedSlot,    this);
     GG::Connect(m_button_prev->LeftClickedSignal,                        &SidePanel::PrevButtonClicked,      this);
     GG::Connect(m_button_next->LeftClickedSignal,                        &SidePanel::NextButtonClicked,      this);
-    GG::Connect(m_planet_panel_container->PlanetSelectedSignal,          &SidePanel::PlanetSelectedSlot,     this);
+    GG::Connect(m_planet_panel_container->PlanetClickedSignal,           &SidePanel::PlanetClickedSlot,      this);
     GG::Connect(m_planet_panel_container->PlanetLeftDoubleClickedSignal, PlanetDoubleClickedSignal);
     GG::Connect(m_planet_panel_container->PlanetRightClickedSignal,      PlanetRightClickedSignal);
     GG::Connect(m_planet_panel_container->BuildingRightClickedSignal,    BuildingRightClickedSignal);
@@ -3284,7 +3278,7 @@ void SidePanel::NextButtonClicked() {
     SystemSelectionChangedSlot(m_system_name->CurrentItem());
 }
 
-void SidePanel::PlanetSelectedSlot(int planet_id) {
+void SidePanel::PlanetClickedSlot(int planet_id) {
     if (m_selection_enabled)
         SelectPlanet(planet_id);
 }
