@@ -112,7 +112,6 @@ private:
     void                RefreshInPreRender();
 
     void                RefreshImpl();                  ///< fully refreshes contents.  to be used when objects are created, destroyed or added to system
-    void                SelectPlanetImpl(int planet_id);///< sets selected planet in this sidepanel
 
     /**  Insert all known systems into the SystemName drop down list.*/
     void                RefreshSystemNames();
