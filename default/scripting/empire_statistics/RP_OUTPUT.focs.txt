@@ -3,3 +3,13 @@ Statistic name = "RP_OUTPUT" value =
         Planet
         OwnedBy empire = Source.Owner
     ]
+Statistic name = "RP_BY_COL" value = ((
+    Sum value = LocalCandidate.Research condition = And [
+        Planet
+        OwnedBy empire = Source.Owner
+    ] ) / (
+    Count condition = And [
+        PopulationCenter
+        Population low = 0.02
+        OwnedBy empire = Source.Owner
+    ] ))
