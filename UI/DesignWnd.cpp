@@ -157,17 +157,17 @@ namespace {
             if (!exists(saved_designs_dir))
                 return;
 
-            std::vector<std::unique_ptr<ShipDesign>> file_designs;
+            std::vector<std::pair<std::unique_ptr<ShipDesign>, boost::filesystem::path>> designs_and_paths;
             std::vector<boost::uuids::uuid> ordering;
-            parse::ship_designs(saved_designs_dir, file_designs, ordering);
+            parse::ship_designs(saved_designs_dir, designs_and_paths, ordering);
 
             m_saved_designs.clear();
-            for (auto& design_entry : file_designs) {
-                if (!m_saved_designs.count(design_entry->UUID()))
-                    m_saved_designs[design_entry->UUID()] = std::move(design_entry);
+            for (auto&& design_and_path : designs_and_paths) {
+                if (!m_saved_designs.count(design_and_path.first->UUID()))
+                    m_saved_designs[design_and_path.first->UUID()] = std::move(design_and_path.first);
                 else
-                    WarnLogger() << "Duplicate ship design UUID " << design_entry->UUID()
-                                 << " found for ship design " << design_entry->Name()
+                    WarnLogger() << "Duplicate ship design UUID " << design_and_path.first->UUID()
+                                 << " found for ship design " << design_and_path.first->Name()
                                  << " in " << saved_designs_dir;
             }
 
