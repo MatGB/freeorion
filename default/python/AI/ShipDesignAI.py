@@ -863,7 +863,7 @@ class ShipDesigner(object):
             elif partclass in ENGINES:
                 engine_counter += 1
                 if engine_counter == 1:
-                    self.design_stats.speed = capacity
+                    self.design_stats.speed += capacity
                 else:
                     self.design_stats.speed = 0
             elif partclass in COLONISATION:
