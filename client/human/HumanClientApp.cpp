@@ -1017,7 +1017,6 @@ bool HumanClientApp::ToggleFullscreen() {
 
 void HumanClientApp::StartGame() {
     m_game_started = true;
-    Orders().Reset();
 
     if (MapWnd* map_wnd = ClientUI::GetClientUI()->GetMapWnd())
         map_wnd->ResetEmpireShown();
