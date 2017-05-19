@@ -1620,6 +1620,7 @@ public:
         void Render() override
         {}
 
+        void SetAvailability(const Availability::Enum type);
     private:
         GG::StaticGraphic*              m_graphic;
         GG::Label*                      m_name;
@@ -1737,6 +1738,12 @@ void BasesListBox::HullPanel::SizeMove(const GG::Pt& ul, const GG::Pt& lr) {
         m_graphic->Resize(Size());
     if (m_name)
         m_name->Resize(Size());
+}
+
+void BasesListBox::HullPanel::SetAvailability(const Availability::Enum type) {
+    auto disabled = type != Availability::Available;
+    m_graphic->Disable(disabled);
+    m_name->Disable(disabled);
 }
 
 BasesListBox::HullAndPartsListBoxRow::HullAndPartsListBoxRow(GG::X w, GG::Y h) :
