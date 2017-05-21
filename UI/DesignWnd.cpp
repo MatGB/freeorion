@@ -1724,13 +1724,13 @@ public:
 
     class CompletedDesignListBoxRow : public BasesListBoxRow {
     public:
-        CompletedDesignListBoxRow(GG::X w, GG::Y h, int design_id);
+        CompletedDesignListBoxRow(GG::X w, GG::Y h, const ShipDesign& design);
         int                             DesignID() const { return m_design_id; }
         void                            SetAvailability(const Availability::Enum type) override;
         void SetDisplayName(const std::string& name);
     private:
         int                             m_design_id;
-        HullAndNamePanel*                m_panel;
+        HullAndNamePanel*               m_panel;
     };
 
 protected:
@@ -1850,18 +1850,13 @@ void BasesListBox::HullAndPartsListBoxRow::SetAvailability(const Availability::E
     BasesListBox::BasesListBoxRow::SetAvailability(type);
 }
 
-BasesListBox::CompletedDesignListBoxRow::CompletedDesignListBoxRow(GG::X w, GG::Y h,
-                                                                   int design_id) :
+BasesListBox::CompletedDesignListBoxRow::CompletedDesignListBoxRow(
+    GG::X w, GG::Y h, const ShipDesign &design) :
     BasesListBoxRow(w, h),
-    m_design_id(design_id),
+    m_design_id(design.ID()),
     m_panel(nullptr)
 {
-    const ShipDesign* design = GetShipDesign(m_design_id);
-    if (!design) {
-        ErrorLogger() << "No ShipDesign in CompletedDesignListBoxRow.";
-    }
-
-    m_panel = new HullAndNamePanel(w, h, design->Hull(), design->Name());
+    m_panel = new HullAndNamePanel(w, h, design.Hull(), design.Name());
     push_back(m_panel);
     SetDragDropDataType(COMPLETE_DESIGN_ROW_DROP_STRING);
 }
@@ -2063,7 +2058,7 @@ class SavedDesignsListBox : public BasesListBox {
 
     class SavedDesignListBoxRow : public BasesListBoxRow {
         public:
-        SavedDesignListBoxRow(GG::X w, GG::Y h, const boost::uuids::uuid& design_uuid);
+        SavedDesignListBoxRow(GG::X w, GG::Y h, const ShipDesign& design);
         const boost::uuids::uuid        DesignUUID() const;
         const std::string&              DesignName() const;
         const std::string&              Description() const;
@@ -2162,7 +2157,7 @@ void CompletedDesignsListBox::PopulateCore() {
                 || (available && !obsolete && showing_available)
                 || (!available && showing_unavailable))
             {
-                CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, design_id);
+                CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, *design);
                 if (obsolete)
                     row->SetAvailability(Availability::Obsolete);
                 else if (!available)
@@ -2176,11 +2171,10 @@ void CompletedDesignsListBox::PopulateCore() {
         for (Universe::ship_design_iterator it = universe.beginShipDesigns();
              it != universe.endShipDesigns(); ++it)
         {
-            int design_id = it->first;
             const ShipDesign* design = it->second;
             if (!design->Producible())
                 continue;
-            CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, design_id);
+            CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, *design);
             Insert(row);
             row->Resize(row_size);
         }
@@ -2207,7 +2201,7 @@ void SavedDesignsListBox::PopulateCore() {
         if (!((available && showing_available) || (!available && showing_unavailable)))
             continue;
 
-        SavedDesignListBoxRow* row = new SavedDesignListBoxRow(row_size.x, row_size.y, uuid);
+        SavedDesignListBoxRow* row = new SavedDesignListBoxRow(row_size.x, row_size.y, *design);
         Insert(row);
         row->Resize(row_size);
 
@@ -2228,11 +2222,10 @@ void MonstersListBox::PopulateCore() {
     for (Universe::ship_design_iterator it = universe.beginShipDesigns();
             it != universe.endShipDesigns(); ++it)
     {
-        int design_id = it->first;
         const ShipDesign* design = it->second;
         if (!design->IsMonster())
             continue;
-        CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, design_id);
+        CompletedDesignListBoxRow* row = new CompletedDesignListBoxRow(row_size.x, row_size.y, *design);
         Insert(row);
         row->Resize(row_size);
     }
@@ -2270,9 +2263,14 @@ BasesListBox::Row* CompletedDesignsListBox::ChildrenDraggedAwayCore(const GG::Wn
         boost::polymorphic_downcast<const BasesListBox::CompletedDesignListBoxRow*>(wnd);
 
     int design_id = design_row->DesignID();
+    const ShipDesign* design = GetShipDesign(design_id);
+    if (!design) {
+        ErrorLogger() << "Missing design with id " << design_id;
+        return nullptr;
+    }
 
     const auto row_size = ListRowSize();
-    auto row = new CompletedDesignListBoxRow(row_size.x, row_size.y, design_id);
+    auto row = new CompletedDesignListBoxRow(row_size.x, row_size.y, *design);
     if (const Empire* empire = GetEmpire(EmpireID())) {
         if (!empire->ShipDesignAvailable(design_id))
             row->SetAvailability(Availability::Future);
@@ -2289,14 +2287,20 @@ BasesListBox::Row* SavedDesignsListBox::ChildrenDraggedAwayCore(const GG::Wnd* c
     const SavedDesignsListBox::SavedDesignListBoxRow* design_row =
         boost::polymorphic_downcast<const SavedDesignsListBox::SavedDesignListBoxRow*>(wnd);
 
+    SavedDesignsManager& manager = GetSavedDesignsManager();
+    const auto design = manager.GetDesign(design_row->DesignUUID());
+    if (!design) {
+        ErrorLogger() << "Saved design missing with uuid " << design_row->DesignUUID();
+        return nullptr;
+    }
+
     const auto row_size = ListRowSize();
-    auto row = new SavedDesignListBoxRow(row_size.x, row_size.y, design_row->DesignUUID());
+    auto row = new SavedDesignListBoxRow(row_size.x, row_size.y, *design);
 
     const auto empire_id = HumanClientApp::GetApp()->EmpireID();
     const auto empire = GetEmpire(empire_id);
-    const auto design = GetSavedDesignsManager().GetDesign(design_row->DesignUUID());
 
-    if (empire && design) {
+    if (empire) {
         auto available = empire->ShipDesignAvailable(*design);
         if (!available)
             row->SetAvailability(Availability::Future);
@@ -2551,20 +2555,13 @@ void SavedDesignsListBox::QueueItemMoved(const GG::ListBox::iterator& row_it,
 // BasesListBox derived class rows              //
 //////////////////////////////////////////////////
 
-SavedDesignsListBox::SavedDesignListBoxRow::SavedDesignListBoxRow(GG::X w, GG::Y h,
-                                                           const boost::uuids::uuid& design_uuid) :
+SavedDesignsListBox::SavedDesignListBoxRow::SavedDesignListBoxRow(
+    GG::X w, GG::Y h, const ShipDesign& design) :
     BasesListBoxRow(w, h),
-    m_design_uuid(design_uuid),
+    m_design_uuid(design.UUID()),
     m_panel(nullptr)
 {
-    SavedDesignsManager& manager = GetSavedDesignsManager();
-    const ShipDesign* design = manager.GetDesign(m_design_uuid);
-    if (!design) {
-        ErrorLogger() << "Design added to SavedDesignListBoxRow is not a valid saved design, uuid = " << design_uuid;
-        return;
-    }
-
-    m_panel = new HullAndNamePanel(w, h, design->Hull(), design->Name());
+    m_panel = new HullAndNamePanel(w, h, design.Hull(), design.Name());
     push_back(m_panel);
     SetDragDropDataType(SAVED_DESIGN_ROW_DROP_STRING);
 }
