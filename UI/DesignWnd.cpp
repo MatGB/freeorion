@@ -3598,6 +3598,7 @@ void DesignWnd::MainPanel::SetDesignComponents(const std::string& hull,
                                                const std::vector<std::string>& parts)
 {
     m_replaced_design_id = boost::none;
+    m_replaced_design_uuid = boost::none;
     SetHull(hull);
     SetParts(parts);
 }
@@ -3720,6 +3721,9 @@ void DesignWnd::MainPanel::DesignChanged() {
     m_replace_button->Disable(true);
     m_confirm_button->Disable(true);
 
+    m_replace_button->SetText(UserString("DESIGN_WND_UPDATE"));
+    m_confirm_button->SetText(UserString("DESIGN_WND_ADD"));
+
     if (!m_hull) {
         m_replace_button->SetBrowseInfoWnd(std::make_shared<TextBrowseWnd>(
             UserString("DESIGN_INVALID"), UserString("DESIGN_UPDATE_INVALID_NO_CANDIDATE")));
@@ -3801,28 +3805,35 @@ void DesignWnd::MainPanel::DesignChanged() {
         return;
     }
 
-    // Monster can't be replace or updated and require no browse window.
-    if (!m_replaced_design_id && !m_replaced_design_uuid)
+    const auto& cur_design = GetIncompleteDesign();
+
+    // Monster ships can't edited.
+    if (!cur_design || !cur_design->Producible())
         return;
 
     const auto new_design_name = ValidatedDesignName();
 
     if (m_replaced_design_uuid) {
-        // Saved design can always be replaced
         if (const auto saved_design = GetSavedDesignsManager().GetDesign(*m_replaced_design_uuid)) {
 
-            m_replace_button->SetBrowseInfoWnd(
-                std::make_shared<TextBrowseWnd>(
-                    UserString("DESIGN_WND_UPDATE"),
-                    boost::io::str(FlexibleFormat(UserString("DESIGN_WND_UPDATE_DETAIL"))
-                                   % saved_design->Name()
-                                   % new_design_name)));
-            m_replace_button->Disable(false);
+            // A changed saved design can be replaced
+            if (cur_design && !(*cur_design == *saved_design)) {
+                m_replace_button->SetText(UserString("DESIGN_WND_UPDATE_SAVED"));
+                m_replace_button->SetBrowseInfoWnd(
+                    std::make_shared<TextBrowseWnd>(
+                        UserString("DESIGN_WND_UPDATE_SAVED"),
+                        boost::io::str(FlexibleFormat(UserString("DESIGN_WND_UPDATE_DETAIL_SAVED"))
+                                       % saved_design->Name()
+                                       % new_design_name)));
+                m_replace_button->Disable(false);
+            }
 
+            // A new saved design can always be created
+            m_confirm_button->SetText(UserString("DESIGN_WND_ADD_SAVED"));
             m_confirm_button->SetBrowseInfoWnd(
                 std::make_shared<TextBrowseWnd>(
-                    UserString("DESIGN_WND_ADD"),
-                    boost::io::str(FlexibleFormat(UserString("DESIGN_WND_ADD_DETAIL"))
+                    UserString("DESIGN_WND_ADD_SAVED"),
+                    boost::io::str(FlexibleFormat(UserString("DESIGN_WND_ADD_DETAIL_SAVED"))
                                    % new_design_name)));
             m_confirm_button->Disable(false);
             return;
@@ -3843,19 +3854,17 @@ void DesignWnd::MainPanel::DesignChanged() {
         return;
     }
 
-    if (!m_replaced_design_id)
-        return;
-
-    const ShipDesign* replaced_ship_design = GetShipDesign(*m_replaced_design_id);
-
-    if (*m_replaced_design_id != INVALID_DESIGN_ID && replaced_ship_design) {
-        m_replace_button->SetBrowseInfoWnd(std::make_shared<TextBrowseWnd>(
-            UserString("DESIGN_WND_UPDATE"),
-            boost::io::str(FlexibleFormat(UserString("DESIGN_WND_UPDATE_DETAIL"))
-                           % replaced_ship_design->Name()
-                           % new_design_name)));
-        m_replace_button->Disable(false);
+    if (m_replaced_design_id) {
+        if (const auto& replaced_ship_design = GetShipDesign(*m_replaced_design_id)) {
+            m_replace_button->SetBrowseInfoWnd(std::make_shared<TextBrowseWnd>(
+                UserString("DESIGN_WND_UPDATE"),
+                boost::io::str(FlexibleFormat(UserString("DESIGN_WND_UPDATE_DETAIL"))
+                               % replaced_ship_design->Name()
+                               % new_design_name)));
+            m_replace_button->Disable(false);
+        }
     }
+
     m_confirm_button->SetBrowseInfoWnd(std::make_shared<TextBrowseWnd>(
         UserString("DESIGN_WND_ADD"),
         boost::io::str(FlexibleFormat(UserString("DESIGN_WND_ADD_DETAIL"))
