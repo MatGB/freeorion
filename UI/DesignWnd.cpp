@@ -3998,9 +3998,7 @@ void DesignWnd::MainPanel::AcceptDrops(const GG::Pt& pt, const std::vector<GG::W
         return;
 
     if (const auto control = dynamic_cast<const BasesListBox::CompletedDesignListBoxRow*>(wnd)) {
-        int design_id = control->DesignID();
-        if (design_id != INVALID_DESIGN_ID)
-            SetDesign(design_id);
+        SetDesign(GetShipDesign(control->DesignID()));
     }
     else if (const auto control = dynamic_cast<const BasesListBox::HullAndPartsListBoxRow*>(wnd)) {
         const std::string& hull = control->Hull();
@@ -4008,13 +4006,9 @@ void DesignWnd::MainPanel::AcceptDrops(const GG::Pt& pt, const std::vector<GG::W
 
         SetDesignComponents(hull, parts);
     }
-    else if (const auto* control = dynamic_cast<const SavedDesignsListBox::SavedDesignListBoxRow*>(wnd)) {
+    else if (const auto control = dynamic_cast<const SavedDesignsListBox::SavedDesignListBoxRow*>(wnd)) {
         const auto& uuid = control->DesignUUID();
-        const ShipDesign* design = GetSavedDesignsManager().GetDesign(uuid);
-        if (design) {
-            SetDesignComponents(design->Hull(), design->Parts(),
-                                design->Name(), design->Description());
-        }
+        SetDesign(GetSavedDesignsManager().GetDesign(uuid));
     }
     delete wnd;
 }
