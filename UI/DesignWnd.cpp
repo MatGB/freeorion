@@ -2109,6 +2109,8 @@ class MonstersListBox : public BasesListBox {
     protected:
     void PopulateCore() override;
     Row* ChildrenDraggedAwayCore(const GG::Wnd* const wnd) override;
+
+    void BaseDoubleClicked(GG::ListBox::iterator it, const GG::Pt& pt, const GG::Flags<GG::ModKey>& modkeys) override;
 };
 
 
@@ -2376,6 +2378,16 @@ void SavedDesignsListBox::BaseDoubleClicked(GG::ListBox::iterator it, const GG::
     if (!sd_row)
         return;
     SavedDesignSelectedSignal(sd_row->DesignUUID());
+}
+
+void MonstersListBox::BaseDoubleClicked(GG::ListBox::iterator it, const GG::Pt& pt,
+                                            const GG::Flags<GG::ModKey>& modkeys)
+{
+    CompletedDesignListBoxRow* cd_row = dynamic_cast<CompletedDesignListBoxRow*>(*it);
+    if (!cd_row || cd_row->DesignID() == INVALID_DESIGN_ID)
+        return;
+
+    DesignSelectedSignal(cd_row->DesignID());
 }
 
 
