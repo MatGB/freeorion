@@ -2406,8 +2406,13 @@ void SavedDesignsListBox::BaseLeftClicked(GG::ListBox::iterator it, const GG::Pt
     if (!saved_design_row)
         return;
     const auto design_uuid = saved_design_row->DesignUUID();
-    const ShipDesign* design = GetSavedDesignsManager().GetDesign(design_uuid);
-    if (design)
+    auto& manager = GetSavedDesignsManager();
+    const auto design = manager.GetDesign(design_uuid);
+    if (!design)
+        return;
+    if (modkeys & GG::MOD_KEY_CTRL)
+        manager.AddSavedDesignToCurrentDesigns(design->UUID());
+    else 
         DesignClickedSignal(design);
 }
 
@@ -2497,16 +2502,9 @@ void SavedDesignsListBox::BaseRightClicked(GG::ListBox::iterator it, const GG::P
     DebugLogger() << "BasesListBox::BaseRightClicked on design name : " << design->Name();;
 
     // Context menu actions
-    // add design
-    auto add_design_action = [&design, empire_id]() {
-
-        DebugLogger() << "BasesListBox::BaseRightClicked Add Saved Design" << design->Name();
-        int new_design_id = HumanClientApp::GetApp()->GetNewDesignID();
-
-        CurrentDesignsInsertBefore(new_design_id, INVALID_OBJECT_ID);
-
-        HumanClientApp::GetApp()->Orders().IssueOrder(
-            std::make_shared<ShipDesignOrder>(empire_id, new_design_id, *design));
+    // add design to empire
+    auto add_design_action = [&manager, &design]() {
+        manager.AddSavedDesignToCurrentDesigns(design->UUID());
     };
     
     // delete design from saved designs 
