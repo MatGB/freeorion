@@ -1113,7 +1113,8 @@ namespace {
             }
 
             if (DesignsTheSame(*existing_design, *design)) {
-                DebugLogger() << "PredefinedShipDesignManager::AddShipDesignsToUniverse found there already is an exact duplicate of a design to be added, so is not re-adding it";
+                WarnLogger() << "AddShipDesignsToUniverse found an exact duplicate of ship design "
+                             << design->Name() << "to be added, so is not re-adding it";
                 design_generic_ids[design->Name(false)] = existing_design->ID();
                 return; // design already added; don't need to do so again
             }
@@ -1143,6 +1144,8 @@ namespace {
         }
 
         design_generic_ids[design->Name(false)] = new_design_id;
+        TraceLogger() << "AddShipDesignsToUniverse added ship design "
+                      << design->Name() << " to universe.";
     };
 }
 
