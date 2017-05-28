@@ -3209,8 +3209,11 @@ public:
     const std::vector<std::string>      Parts() const;              //!< returns vector of names of parts in slots of current shown design.  empty slots are represented with empty stri
     const std::string&                  Hull() const;               //!< returns name of hull of current shown design
     bool                                IsDesignNameValid() const;  //!< checks design name validity
-    const std::string                   ValidatedDesignName() const;//!< returns name currently entered for design or valid default
-    const std::string&                  DesignDescription() const;  //!< returns description currently entered for design
+    /** Return a validated name and description.  If the design is a saved design then either both
+        or neither will be stringtable values.*/
+    std::pair<I18nString, I18nString>   ValidatedNameAndDescription() const;
+    const I18nString                    ValidatedDesignName() const;//!< returns name currently entered for design or valid default
+    const I18nString                    DesignDescription() const;  //!< returns description currently entered for design
 
     /** Returns a pointer to the design currently being modified (if any).  May
         return an empty pointer if not currently modifying a design. */
@@ -3437,11 +3440,42 @@ bool DesignWnd::MainPanel::IsDesignNameValid() const {
     return !m_design_name->Text().empty();
 }
 
-const std::string DesignWnd::MainPanel::ValidatedDesignName() const
-{ return (IsDesignNameValid()) ? m_design_name->Text() : UserString("DESIGN_NAME_DEFAULT"); }
 
-const std::string& DesignWnd::MainPanel::DesignDescription() const
-{ return m_design_description->Text(); }
+std::pair<DesignWnd::MainPanel::I18nString, DesignWnd::MainPanel::I18nString>
+DesignWnd::MainPanel::ValidatedNameAndDescription() const
+{
+    const auto maybe_saved = EditingSavedDesign();
+
+    // Determine if the title and descrition could both be string table values.
+
+    // Is the title a stringtable index or the same as the saved designs value
+    const std::string name_index =
+        (UserStringExists(m_design_name->Text()) ? m_design_name->Text() :
+         ((maybe_saved && (*maybe_saved)->LookupInStringtable()
+           && (m_design_name->Text() == (*maybe_saved)->Name())) ? (*maybe_saved)->Name(false) : ""));
+
+    // Is the descrition a stringtable index or the same as the saved designs value
+    const std::string desc_index =
+        (UserStringExists(m_design_description->Text()) ? m_design_description->Text() :
+         ((maybe_saved && (*maybe_saved)->LookupInStringtable()
+           && (m_design_description->Text() == (*maybe_saved)->Description())) ? (*maybe_saved)->Description(false) : ""));
+
+    // Are both the title and the description string table lookup values
+    if (!name_index.empty() && !desc_index.empty())
+        return std::make_pair(
+            I18nString(true, name_index),
+            I18nString(true, desc_index));
+
+    return std::make_pair(
+        I18nString(false, (IsDesignNameValid()) ? m_design_name->Text() : UserString("DESIGN_NAME_DEFAULT")),
+        I18nString(false, m_design_description->Text()));
+}
+
+const DesignWnd::MainPanel::I18nString DesignWnd::MainPanel::ValidatedDesignName() const
+{ return ValidatedNameAndDescription().first; }
+
+const DesignWnd::MainPanel::I18nString DesignWnd::MainPanel::DesignDescription() const
+{ return ValidatedNameAndDescription().second; }
 
 std::shared_ptr<const ShipDesign> DesignWnd::MainPanel::GetIncompleteDesign() const {
     RefreshIncompleteDesign();
@@ -3899,7 +3933,7 @@ void DesignWnd::MainPanel::DesignChanged() {
     if (!cur_design)
         return;
 
-    const auto new_design_name = ValidatedDesignName();
+    const auto new_design_name = ValidatedDesignName().DisplayText();
 
     if (const auto& saved_design = EditingSavedDesign()) {
         // A changed saved design can be replaced
@@ -3977,11 +4011,15 @@ std::string DesignWnd::MainPanel::GetCleanDesignDump(const ShipDesign* ship_desi
 }
 
 void DesignWnd::MainPanel::RefreshIncompleteDesign() const {
+    const auto name_and_description = ValidatedNameAndDescription();
+    const auto& name = name_and_description.first;
+    const auto& description = name_and_description.second;
+
     if (ShipDesign* design = m_incomplete_design.get()) {
-        if (design->Hull() ==           this->Hull() &&
-            design->Name() ==           this->m_design_name->Text() &&
-            design->Description() ==    this->DesignDescription() &&
-            design->Parts() ==          this->Parts())
+        if (design->Hull() ==             Hull() &&
+            design->Name(false) ==        name.StoredString() &&
+            design->Description(false) == description.StoredString() &&
+            design->Parts() ==            Parts())
         {
             // nothing has changed, so don't need to update
             return;
@@ -3989,8 +4027,8 @@ void DesignWnd::MainPanel::RefreshIncompleteDesign() const {
     }
 
     // assemble and check info for new design
-    const std::string& hull =           this->Hull();
-    std::vector<std::string> parts =    this->Parts();
+    const std::string& hull =           Hull();
+    std::vector<std::string> parts =    Parts();
 
     // Allow editing invalid saved designs to allow scripters to edit monsters.
     if (!ShipDesign::ValidDesign(hull, parts) && !EditingSavedDesign()) {
@@ -3999,18 +4037,16 @@ void DesignWnd::MainPanel::RefreshIncompleteDesign() const {
         return;
     }
 
-    std::string name = this->ValidatedDesignName();
-
-    const std::string& description = this->DesignDescription();
-
     const std::string& icon = m_hull ? m_hull->Icon() : EMPTY_STRING;
 
     const auto uuid = boost::uuids::random_generator()();
 
     // update stored design
     try {
-        m_incomplete_design.reset(new ShipDesign(name, description, CurrentTurn(), ClientApp::GetApp()->EmpireID(),
-                                                 hull, parts, icon, "", false, false, uuid));
+        m_incomplete_design.reset(new ShipDesign(name.StoredString(), description.StoredString(),
+                                                 CurrentTurn(), ClientApp::GetApp()->EmpireID(),
+                                                 hull, parts, icon, "", name.IsInStringtable(),
+                                                 false, uuid));
     } catch (const std::exception& e) {
         // had a weird crash in the above call a few times, but I can't seem to
         // replicate it now.  hopefully catching any exception here will
@@ -4190,9 +4226,9 @@ std::pair<int, boost::uuids::uuid> DesignWnd::AddDesign() {
         return {INVALID_DESIGN_ID, boost::uuids::uuid{0}};
     }
 
-    std::string name = m_main_panel->ValidatedDesignName();
+    const auto name = m_main_panel->ValidatedDesignName();
 
-    const std::string& description = m_main_panel->DesignDescription();
+    const auto description = m_main_panel->DesignDescription();
 
     std::string icon = "ship_hulls/generic_hull.png";
     if (const HullType* hull = GetHullType(hull_name))
@@ -4201,8 +4237,10 @@ std::pair<int, boost::uuids::uuid> DesignWnd::AddDesign() {
     auto new_uuid = boost::uuids::random_generator()();
 
     // create design from stuff chosen in UI
-    ShipDesign design(name, description, CurrentTurn(), ClientApp::GetApp()->EmpireID(),
-                      hull_name, parts, icon, "some model", false, false, new_uuid);
+    ShipDesign design(name.StoredString(), description.StoredString(),
+                      CurrentTurn(), ClientApp::GetApp()->EmpireID(),
+                      hull_name, parts, icon, "some model", name.IsInStringtable(),
+                      false, new_uuid);
 
     int new_design_id = HumanClientApp::GetApp()->GetNewDesignID();
 
