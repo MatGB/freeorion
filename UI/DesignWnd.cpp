@@ -435,11 +435,7 @@ namespace {
         } else {
             // Add the new saved design.
             // TODO:: Use std::make_unique when switching to C++14
-            std::unique_ptr<ShipDesign> design_copy{
-                new ShipDesign(design.Name(false), design.Description(false),
-                               design.Hull(), design.Parts(), design.Icon(),
-                               design.Model(), design.LookupInStringtable(),
-                               design.IsMonster(), design.UUID())};
+            std::unique_ptr<ShipDesign> design_copy{new ShipDesign(design)};
 
             const auto save_path = CreateSaveFileNameForDesign(design);
 
