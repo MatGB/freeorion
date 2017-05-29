@@ -4025,29 +4025,19 @@ void DesignWnd::MainPanel::RefreshIncompleteDesign() const {
     const std::string& hull =           Hull();
     std::vector<std::string> parts =    Parts();
 
-    // Allow editing invalid saved designs to allow scripters to edit monsters.
-    if (!ShipDesign::ValidDesign(hull, parts) && !EditingSavedDesign()) {
-        ErrorLogger() << "DesignWnd::MainPanel::RefreshIncompleteDesign attempting to create an invalid design.";
-        m_incomplete_design.reset();
-        return;
-    }
-
     const std::string& icon = m_hull ? m_hull->Icon() : EMPTY_STRING;
 
     const auto uuid = boost::uuids::random_generator()();
 
     // update stored design
+    m_incomplete_design.reset();
     try {
         m_incomplete_design.reset(new ShipDesign(name.StoredString(), description.StoredString(),
                                                  CurrentTurn(), ClientApp::GetApp()->EmpireID(),
                                                  hull, parts, icon, "", name.IsInStringtable(),
                                                  false, uuid));
-    } catch (const std::exception& e) {
-        // had a weird crash in the above call a few times, but I can't seem to
-        // replicate it now.  hopefully catching any exception here will
-        // prevent crashes and instead just cause the incomplete design details
-        // to not update when expected.
-        ErrorLogger() << "DesignWnd::MainPanel::RefreshIncompleteDesign caught exception: " << e.what();
+    } catch (const std::runtime_error& e) {
+        ErrorLogger() << "DesignWnd::MainPanel::RefreshIncompleteDesign " << e.what();
     }
 }
 
@@ -4213,57 +4203,58 @@ void DesignWnd::ShowShipDesignInEncyclopedia(int design_id)
 { m_detail_panel->SetDesign(design_id); }
 
 std::pair<int, boost::uuids::uuid> DesignWnd::AddDesign() {
-    std::vector<std::string> parts = m_main_panel->Parts();
-    const std::string& hull_name = m_main_panel->Hull();
+    try {
+        std::vector<std::string> parts = m_main_panel->Parts();
+        const std::string& hull_name = m_main_panel->Hull();
 
-    if (!ShipDesign::ValidDesign(hull_name, parts)) {
+        const auto name = m_main_panel->ValidatedDesignName();
+
+        const auto description = m_main_panel->DesignDescription();
+
+        std::string icon = "ship_hulls/generic_hull.png";
+        if (const HullType* hull = GetHullType(hull_name))
+            icon = hull->Icon();
+
+        auto new_uuid = boost::uuids::random_generator()();
+
+        // create design from stuff chosen in UI
+        ShipDesign design(name.StoredString(), description.StoredString(),
+                          CurrentTurn(), ClientApp::GetApp()->EmpireID(),
+                          hull_name, parts, icon, "some model", name.IsInStringtable(),
+                          false, new_uuid);
+
+        int new_design_id = HumanClientApp::GetApp()->GetNewDesignID();
+
+        // If editing a saved design insert into saved designs
+        if (m_main_panel->EditingSavedDesign()) {
+            auto& manager = GetSavedDesignsManager();
+            manager.InsertBefore(design, manager.OrderedDesignUUIDs().begin());
+            new_uuid = *manager.OrderedDesignUUIDs().begin();
+
+            // Otherwise insert into current empire designs
+        } else {
+            int empire_id = HumanClientApp::GetApp()->EmpireID();
+            const Empire* empire = GetEmpire(empire_id);
+            if (!empire) return {INVALID_DESIGN_ID, boost::uuids::uuid{0}};
+
+            auto& manager = GetCurrentDesignsManager();
+            const auto& all_ids = manager.AllOrderedIDs();
+            manager.InsertBefore(new_design_id, all_ids.empty() ? INVALID_OBJECT_ID : *all_ids.begin());
+
+            HumanClientApp::GetApp()->Orders().IssueOrder(
+                std::make_shared<ShipDesignOrder>(empire_id, new_design_id, design));
+        }
+
+        m_main_panel->DesignChangedSignal();
+
+        DebugLogger() << "Added new design: " << design.Name();
+
+        return std::make_pair(new_design_id, new_uuid);
+
+    } catch (std::runtime_error&) {
         ErrorLogger() << "DesignWnd::AddDesign tried to add an invalid ShipDesign";
         return {INVALID_DESIGN_ID, boost::uuids::uuid{0}};
     }
-
-    const auto name = m_main_panel->ValidatedDesignName();
-
-    const auto description = m_main_panel->DesignDescription();
-
-    std::string icon = "ship_hulls/generic_hull.png";
-    if (const HullType* hull = GetHullType(hull_name))
-        icon = hull->Icon();
-
-    auto new_uuid = boost::uuids::random_generator()();
-
-    // create design from stuff chosen in UI
-    ShipDesign design(name.StoredString(), description.StoredString(),
-                      CurrentTurn(), ClientApp::GetApp()->EmpireID(),
-                      hull_name, parts, icon, "some model", name.IsInStringtable(),
-                      false, new_uuid);
-
-    int new_design_id = HumanClientApp::GetApp()->GetNewDesignID();
-
-    // If editing a saved design insert into saved designs
-    if (m_main_panel->EditingSavedDesign()) {
-        auto& manager = GetSavedDesignsManager();
-        manager.InsertBefore(design, manager.OrderedDesignUUIDs().begin());
-        new_uuid = *manager.OrderedDesignUUIDs().begin();
-
-    // Otherwise insert into current empire designs
-    } else {
-        int empire_id = HumanClientApp::GetApp()->EmpireID();
-        const Empire* empire = GetEmpire(empire_id);
-        if (!empire) return {INVALID_DESIGN_ID, boost::uuids::uuid{0}};
-
-        auto& manager = GetCurrentDesignsManager();
-        const auto& all_ids = manager.AllOrderedIDs();
-        manager.InsertBefore(new_design_id, all_ids.empty() ? INVALID_OBJECT_ID : *all_ids.begin());
-
-        HumanClientApp::GetApp()->Orders().IssueOrder(
-            std::make_shared<ShipDesignOrder>(empire_id, new_design_id, design));
-    }
-
-    m_main_panel->DesignChangedSignal();
-
-    DebugLogger() << "Added new design: " << design.Name();
-
-    return std::make_pair(new_design_id, new_uuid);
 }
 
 void DesignWnd::ReplaceDesign() {
