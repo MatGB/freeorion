@@ -4062,11 +4062,12 @@ void DesignWnd::MainPanel::RefreshIncompleteDesign() const {
     // update stored design
     m_incomplete_design.reset();
     try {
-        m_incomplete_design.reset(new ShipDesign(name.StoredString(), description.StoredString(),
+        m_incomplete_design.reset(new ShipDesign(std::invalid_argument(""),
+                                                 name.StoredString(), description.StoredString(),
                                                  CurrentTurn(), ClientApp::GetApp()->EmpireID(),
                                                  hull, parts, icon, "", name.IsInStringtable(),
                                                  false, uuid));
-    } catch (const std::runtime_error& e) {
+    } catch (const std::invalid_argument& e) {
         ErrorLogger() << "DesignWnd::MainPanel::RefreshIncompleteDesign " << e.what();
     }
 }
@@ -4248,7 +4249,8 @@ std::pair<int, boost::uuids::uuid> DesignWnd::AddDesign() {
         auto new_uuid = boost::uuids::random_generator()();
 
         // create design from stuff chosen in UI
-        ShipDesign design(name.StoredString(), description.StoredString(),
+        ShipDesign design(std::invalid_argument(""),
+                          name.StoredString(), description.StoredString(),
                           CurrentTurn(), ClientApp::GetApp()->EmpireID(),
                           hull_name, parts, icon, "some model", name.IsInStringtable(),
                           false, new_uuid);
@@ -4281,7 +4283,7 @@ std::pair<int, boost::uuids::uuid> DesignWnd::AddDesign() {
 
         return std::make_pair(new_design_id, new_uuid);
 
-    } catch (std::runtime_error&) {
+    } catch (std::invalid_argument&) {
         ErrorLogger() << "DesignWnd::AddDesign tried to add an invalid ShipDesign";
         return {INVALID_DESIGN_ID, boost::uuids::uuid{0}};
     }
