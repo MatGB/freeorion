@@ -3874,25 +3874,25 @@ Conflicting Design
 DESIGN_COMPONENT_CONFLICT_DETAIL
 A shipdesign cannot contain both %1% and %2%.
 
-DESIGN_WND_ADD
-Add New Design
+DESIGN_WND_ADD_FINISHED
+Add Finished Design
 
 # %1% name of the new ship design.
-DESIGN_WND_ADD_DETAIL
+DESIGN_WND_ADD_DETAIL_FINISHED
 '''Add new design called
 "%1%"
 to finished designs.'''
 
-DESIGN_WND_UPDATE
-Update Design
+DESIGN_WND_UPDATE_FINISHED
+Update Finished Design
 
-DESIGN_WND_UPDATE_OLD
-Update Old Design
+DESIGN_WND_UPDATE_FINISHED
+Update Finished Design
 
-# %1% old name of the existing design.
+# %1% previous name of the existing design.
 # %2% new name of the existing design.
-DESIGN_WND_UPDATE_OLD_DETAIL
-'''Replace old design
+DESIGN_WND_UPDATE_DETAIL_FINISHED
+'''Replace Finished design
 "%1%"
 with new design
 "%2%"
