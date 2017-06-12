@@ -26,7 +26,9 @@ public:
     /** Designs provides ordered lists of designs for display in the UI. */
     class Designs {
     public:
-        virtual std::vector<int> OrderedIDs() const = 0;
+        virtual std::vector<int> OrderedIDs() const
+            /* VC++ won't link ShipDesignManager if Designs is pure *///= 0;
+        { return std::vector<int>{}; }
     };
 
     ShipDesignManager();
