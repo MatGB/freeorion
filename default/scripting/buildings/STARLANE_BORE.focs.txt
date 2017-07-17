@@ -7,6 +7,7 @@ BuildingType
     effectsgroups = [
         EffectsGroup
             scope = Object id = Source.SystemID
+            priority = 80
             effects = [
                 AddStarlanes endpoint = MinimumNumberOf
                 number = 1
